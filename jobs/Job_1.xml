@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?><ns2:graph xmlns:ns2="http://www.bitwiseglobal.com/graph/main" name="Graph_1">
+    <operations xmlns:ns4="http://www.bitwiseglobal.com/graph/operationstypes" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Filter_01" phase="0" xsi:type="ns4:filter">
+        <operation class="com.mycompany.Test" id="opt">
+            <inputFields/>
+        </operation>
+    </operations>
+</ns2:graph>
