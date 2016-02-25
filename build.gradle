@@ -1,0 +1,204 @@
+apply plugin: 'java'
+sourceCompatibility = 1.7
+version = '1.0'
+
+def artifactUrl="http://10.30.127.67:9091/artifactory/libs-release"
+
+repositories {     
+        maven{
+    					url artifactUrl
+   			 		}  
+}
+
+
+configurations { sshAntTask }
+configurations { compile }
+
+dependencies { sshAntTask 'org.apache.ant:ant-jsch:1.9.4' }
+
+sourceSets {
+		  main {
+				java.srcDir 'src'
+ 			 } 
+ 			 
+}
+
+/*
+*Load Build property file.
+*/
+Properties properties = new Properties()
+def buildProperty=project.projectDir.path+'/build.properties'
+File propertiesFile = new File(buildProperty)
+	propertiesFile.withInputStream {
+    		properties.load(propertiesFile.newDataInputStream())
+}	
+	
+/**
+*return project build jar file.
+*/
+def jarFiles = files {file(project.libsDir.path).listFiles() }
+	
+if(properties.remote == "true"){
+
+	dependencies {
+  			compile(group: 'engine', name: 'bhs', version: '1.0.6')
+		}
+
+	task(run, dependsOn: ['build']){ 
+
+	def paramFilePath
+	def xmlFilePath
+	def xmlFileName
+	def paramFileName
+	def jarName;
+	def clusterPass
+
+		if (project.hasProperty("xmlpath")) {
+			xmlFilePath=xmlpath
+			xmlFileName =xmlpath.substring(xmlpath.lastIndexOf("/")+1);
+			}
+			if (project.hasProperty("paramFiles")) {
+			paramFilePath=paramFiles
+			paramFileName =paramFiles.substring(paramFiles.lastIndexOf("/")+1);
+			}
+			if (project.hasProperty("clusterPassword")) {
+			clusterPass=clusterPassword
+			}
+		/**
+		*Remote server hostname and credentials.
+		**/
+
+    	def user = properties.userName
+    	def host = properties.host
+    	def password = clusterPass
+    	def runUtility=properties.runUtility
+    	def jobXML=properties.jobXML
+    	def lib=properties.libs
+    	def paramFile=properties.paramFile
+
+        ant.taskdef(
+        name: 'scp',
+        classname: 'org.apache.tools.ant.taskdefs.optional.ssh.Scp',
+        classpath: configurations.sshAntTask.asPath)
+
+		ant.taskdef(
+        name: 'sshexec',
+        classname: 'org.apache.tools.ant.taskdefs.optional.ssh.SSHExec',
+        classpath: configurations.sshAntTask.asPath)
+
+		/**
+		* SCP command use to move jar and xml file to remote server.
+		*/
+   	   doLast  {
+ 		
+		jarFiles.each {File file ->
+    		jarFiles=file.absolutePath
+    		jarName=file.name
+ 		}
+      	 ant.scp(
+ 			    file: jarFiles,
+                todir: "${user}@${host}:~/"+lib,
+                password: password,
+                trust: true,
+        )
+ 
+
+        ant.scp(
+ 			    file: xmlFilePath,
+                todir: "${user}@${host}:~/"+jobXML,
+                password: password,
+                trust: true,
+        )
+        
+               ant.scp(
+ 			    file: paramFilePath,
+                todir: "${user}@${host}:~/"+paramFile,
+                password: password,
+                trust: true,
+        )
+        
+
+		/**
+		* Run ssh command on remote server.
+		*/
+      ant.sshexec( 
+                host: host,
+                username: user,
+                password: password,
+                trust: true,
+                command: "sh "+runUtility+" -xmlpath "+jobXML+"/"+xmlFileName+" -libjars "+lib+"/"+jarName+" -paramfiles "+paramFile+"/"+paramFileName
+
+
+        )
+   }
+}
+}
+else
+{
+
+	ext.cascadingVersion = '3.0.1'
+	ext.hadoopVersion = '2.6.0'
+	ext.hiveVersion = '1.2.0'
+	def mainClassName='com.bitwiseglobal.commandline.utilities.BHSExecution'
+
+dependencies {
+  	compile(group: 'engine', name: 'bhs', version: '1.0.6')
+  	compile(group: 'cascading.avro', name: 'avro-scheme', version: '2.5.0')
+  	compile group: 'cascading', name: 'cascading-core', version: cascadingVersion
+  	compile group: 'cascading', name: 'cascading-hadoop2-mr1', version: cascadingVersion //required for plunger
+  	compile group: 'cascading', name: 'cascading-local', version: cascadingVersion //required for plunger
+  	compile group: 'org.apache.hadoop', name: 'hadoop-common', version: hadoopVersion //required for plunger
+  	compile group: 'org.apache.hadoop', name: 'hadoop-mapreduce-client-common', version: hadoopVersion
+  	compile group: 'cascading', name: 'cascading-hive', version: '2.0.0'
+  	compile (group: 'org.apache.hive', name: 'hive-exec', version: hiveVersion) 
+  	{exclude group: 'com.google.guava'
+  	exclude group: 'org.apache.curator'
+  	}
+  	compile 'org.jgrapht:jgrapht-ext:0.9.1'
+  	compile (group: 'com.google.guava', name: 'guava', version: '14.0.1')
+  	compile (group: 'org.slf4j', name: 'slf4j-api', version: '1.7.2')  
+  	compile (group: 'com.twitter', name: 'parquet-cascading', version: '1.6.0')
+  	compile (group: 'com.twitter', name: 'parquet-hadoop', version: '1.6.0')
+  	compile (group: 'com.twitter', name: 'parquet-column', version: '1.6.0')
+  	compile (group: 'org.fluttercode.datafactory', name: 'datafactory', version: '0.8')
+  	compile (group: 'org.hamcrest', name: 'hamcrest-core', version: '1.3')
+  	testCompile(group: 'junit', name: 'junit', version: '4.11')
+  	testCompile(group: 'com.hotels', name: 'plunger', version: '4.11')
+  	testCompile (group: 'org.mockito', name: 'mockito-core', version: '1.9.5')
+  	testCompile (group: 'commons-io', name: 'commons-io', version: '2.4')  
+}
+
+test {
+     testLogging.showStandardStreams = true
+}  
+
+/**
+*Main run job method that depends on build and property files need to run the job.
+* Adding all dependency jar files in classpath and resolve args.
+*/
+task(run, dependsOn: ['build','classes'], type: JavaExec){ 
+		    main=mainClassName
+	   		standardOutput = System.out
+  			errorOutput = System.err 
+			classpath += jarFiles+configurations.compile
+			def argsArray = getArgsForRunJob()
+			args=[''+argsArray[0]+'',''+argsArray[1]+'',''+argsArray[2]+'',''+argsArray[3]+'']
+}
+}
+
+/**
+* Get the Argument array
+*return args
+**/
+def getArgsForRunJob(){
+			def argsArray = new String[4]
+			if (project.hasProperty("xmlpath")) {
+			argsArray[0]="-xmlpath"
+			argsArray[1]=xmlpath
+			}
+			if (project.hasProperty("paramFiles")) {
+			argsArray[2]="-paramFiles"
+			argsArray[3]=paramFiles			
+			}
+			return argsArray
+}
