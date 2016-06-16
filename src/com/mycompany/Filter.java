@@ -53,8 +53,6 @@ public class Filter extends Dialog {
 		GridData gd_composite = new GridData(SWT.FILL, SWT.CENTER, true, true, 1, 1);
 		gd_composite.heightHint = 497;
 		allRowsComposite.setLayoutData(gd_composite);
-		
-
 		addRow(getComposite());
 		
 		return container;
@@ -74,10 +72,9 @@ public class Filter extends Dialog {
 		addButton.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				Control[] children = allRowsComposite.getChildren();
 				Composite newComposite = getComposite();
 				addRow(newComposite);
-				newComposite.moveAbove(children[0]);
+				newComposite.moveAbove(((Button)e.getSource()).getParent());
 				
 				allRowsComposite.getShell().layout(new Control[] { newComposite });
 			}
@@ -88,7 +85,13 @@ public class Filter extends Dialog {
 		removeButton.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				
+				Button button = new Button(((Button)e.getSource()).getParent(), SWT.NONE);
+				button.setText("Something");
+				button.moveAbove(((Button)e.getSource()));
+				allRowsComposite.getShell().layout(new Control[] { button });
+				/*Button button = ((Button)e.getSource());
+				button.getParent().dispose();
+				allRowsComposite.layout(true);*/
 			}
 		});
 		removeButton.setText("*");
