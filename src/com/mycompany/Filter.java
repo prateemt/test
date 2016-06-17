@@ -1,7 +1,8 @@
 package com.bitwise.app.graph.propertywindow;
 
 import org.eclipse.jface.dialogs.Dialog;
-import org.eclipse.jface.dialogs.IDialogConstants;
+import org.eclipse.jface.fieldassist.AutoCompleteField;
+import org.eclipse.jface.fieldassist.ComboContentAdapter;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
@@ -14,12 +15,15 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.TabFolder;
+import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.widgets.Text;
-import org.eclipse.swt.widgets.Label;
 
 public class Filter extends Dialog {
 	private Text text;
-	Composite allRowsComposite;
+	private Composite allRowsComposite;
+	
+	private String[] fields = new String[]{"firstName", "lastName", "salary", "birthDate"};
 	
 	public static void main(String[] args) {
 		Filter test = new Filter(Display.getDefault().getActiveShell());
@@ -45,26 +49,43 @@ public class Filter extends Dialog {
 		container.setLayout(new GridLayout(1, false));
 		
 		Composite composite_1 = new Composite(container, SWT.NONE);
-		composite_1.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, false, false, 1, 1));
+		composite_1.setLayout(new GridLayout(1, false));
+		composite_1.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 1, 1));
 		
+		TabFolder tabFolder = new TabFolder(composite_1, SWT.NONE);
+		tabFolder.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 1, 1));
 		
-		allRowsComposite = new Composite(container, SWT.NONE);
+		TabItem tbtmRemote = new TabItem(tabFolder, SWT.NONE);
+		tbtmRemote.setText("Remote");
+		
+		allRowsComposite = new Composite(tabFolder, SWT.NONE);
 		allRowsComposite.setLayout(new GridLayout(1, false));
-		GridData gd_composite = new GridData(SWT.FILL, SWT.CENTER, true, true, 1, 1);
-		gd_composite.heightHint = 497;
-		allRowsComposite.setLayoutData(gd_composite);
-		addRow(getComposite());
+		allRowsComposite.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true, 1, 1));
 		
+		tbtmRemote.setControl(allRowsComposite);
+		
+		Composite buttonComposite = new Composite(container, SWT.NONE);
+		buttonComposite.setLayout(new GridLayout(2, false));
+		buttonComposite.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, true, false, 1, 1));
+		
+		Button okButton = new Button(buttonComposite, SWT.NONE);
+		okButton.setText("Ok");
+		
+		Button cancelButton = new Button(buttonComposite, SWT.NONE);
+		cancelButton.setText("Cancel");
+		
+		addRow(getComposite());
+		disableFirstComposite();
 		return container;
 	}
 
 	private Composite getComposite(){
-		Composite composite_2 = new Composite(allRowsComposite, SWT.NONE);
-		composite_2.setLayout(new GridLayout(7, false));
-		GridData gd_composite_2 = new GridData(SWT.FILL, SWT.CENTER, false, false, 1, 1);
-		gd_composite_2.widthHint = 1176;
-		composite_2.setLayoutData(gd_composite_2);
-		return composite_2;
+		Composite rowComposite = new Composite(allRowsComposite, SWT.NONE);
+		rowComposite.setLayout(new GridLayout(7, false));
+		GridData gridData = new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1);
+		gridData.widthHint = 1176;
+		rowComposite.setLayoutData(gridData);
+		return rowComposite;
 	}
 	
 	private void addRow(final Composite composite) {
@@ -77,6 +98,7 @@ public class Filter extends Dialog {
 				newComposite.moveAbove(((Button)e.getSource()).getParent());
 				
 				allRowsComposite.getShell().layout(new Control[] { newComposite });
+				disableFirstComposite();
 			}
 		});
 		addButton.setText("+");
@@ -89,6 +111,7 @@ public class Filter extends Dialog {
 				button.setText("Something");
 				button.moveAbove(((Button)e.getSource()));
 				allRowsComposite.getShell().layout(new Control[] { button });
+				disableFirstComposite();
 				/*Button button = ((Button)e.getSource());
 				button.getParent().dispose();
 				allRowsComposite.layout(true);*/
@@ -105,6 +128,8 @@ public class Filter extends Dialog {
 		
 		Combo fieldCombo = new Combo(composite, SWT.NONE);
 		fieldCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
+		fieldCombo.setItems(fields);
+		new AutoCompleteField(fieldCombo, new ComboContentAdapter(), fields);
 		
 		Combo operatorCombo = new Combo(composite, SWT.NONE);
 		operatorCombo.setItems(getOperatorsBasedOnDataType("java.lang.String"));
@@ -124,16 +149,26 @@ public class Filter extends Dialog {
 		return null;
 	}
 
+	private void disableFirstComposite(){
+		Control[] children = allRowsComposite.getChildren();
+		for (int index = 0; index < children.length; index++) {
+			boolean setVisible = true;
+			if(index == 0){
+				setVisible = false;
+			}
+			Composite composite = (Composite) children[index];
+			composite.getChildren()[2].setVisible(setVisible);
+			composite.getChildren()[3].setVisible(setVisible);
+		}
+	}
 	/**
 	 * Create contents of the button bar.
 	 * @param parent
 	 */
 	@Override
 	protected void createButtonsForButtonBar(Composite parent) {
-		createButton(parent, IDialogConstants.OK_ID, IDialogConstants.OK_LABEL,
-				true);
-		createButton(parent, IDialogConstants.CANCEL_ID,
-				IDialogConstants.CANCEL_LABEL, false);
+		//createButton(parent, IDialogConstants.OK_ID, IDialogConstants.OK_LABEL,	true);
+	//	createButton(parent, IDialogConstants.CANCEL_ID,IDialogConstants.CANCEL_LABEL, false);
 	}
 
 	/**
