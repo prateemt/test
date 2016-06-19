@@ -64,14 +64,16 @@ public class FilterWithTables extends Dialog {
 	private static final String CONDITIONAL_EDITOR = "conditional_editor";
 	private static final String VALUE_EDITOR = "vale_editor";
 	
+	private Map<String,String[]> typeBasedConditionalOperators = new HashMap<>();
+	
 	private String relationalOperators[];
 	private String fieldNames[];
 	private Map<String, String> fieldsAndTypes;
 	private TableViewer remoteTableViewer;
 	private TableViewer localTableViewer;
 	
-	private List<Condition> conditionsList; 
-	private Map<String,String[]> typeBasedConditionalOperators = new HashMap<>();
+	private List<Condition> localConditionsList; 
+	private List<Condition> remoteConditionsList; 
 	
 	public void setRelationalOperators(String[] relationalOperators) {
 		this.relationalOperators = relationalOperators;
@@ -90,7 +92,8 @@ public class FilterWithTables extends Dialog {
 	public FilterWithTables(Shell parentShell) {
 		super(parentShell);
 		setShellStyle(SWT.CLOSE | SWT.TITLE | SWT.RESIZE);
-		conditionsList = new ArrayList<>();
+		localConditionsList = new ArrayList<>();
+		remoteConditionsList = new ArrayList<>();
 		
 		typeBasedConditionalOperators.put("java.lang.String", new String[]{"like", "in", "not in"});
 		typeBasedConditionalOperators.put("java.lang.Integer", new String[]{"<", "<=", ">", ">=", "!=", "="});
@@ -118,13 +121,70 @@ public class FilterWithTables extends Dialog {
 		TabFolder tabFolder = new TabFolder(mainComposite, SWT.NONE);
 		tabFolder.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 1, 1));
 		
-		createLocalTabItem(tabFolder);
+		createLocalTabItem(tabFolder, localTableViewer);
+		createRemoteTabItem(tabFolder, remoteTableViewer);
 		
 		return container;
 	}
 
 
-	private void createLocalTabItem(TabFolder tabFolder) {
+	private void createRemoteTabItem(TabFolder tabFolder, TableViewer tableViewer) {
+		TabItem tbtmLocal = new TabItem(tabFolder, SWT.NONE);
+		tbtmLocal.setText("Remote");
+		
+		Composite composite = new Composite(tabFolder, SWT.NONE);
+		tbtmLocal.setControl(composite);
+		composite.setLayout(new GridLayout(1, false));
+		
+		
+		tableViewer = new TableViewer(composite, SWT.BORDER | SWT.FULL_SELECTION | SWT.V_SCROLL);
+		tableViewer.setContentProvider(new ArrayContentProvider());
+		Table table = tableViewer.getTable();
+		table.setHeaderVisible(true);
+		table.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 1, 1));
+		
+		
+		TableViewerColumn addButtonTableViewerColumn = createTableColumns(tableViewer, "");
+		addButtonTableViewerColumn.setLabelProvider(getAddButtonCellProvider(tableViewer, remoteConditionsList));
+		
+		TableViewerColumn removeButtonTableViewerColumn = createTableColumns(tableViewer, "");
+		removeButtonTableViewerColumn.setLabelProvider(getRemoveButtonCellProvider(tableViewer, remoteConditionsList));
+		
+		TableViewerColumn groupButtonTableViewerColumn = createTableColumns(tableViewer, "Group");
+		groupButtonTableViewerColumn.setLabelProvider(getGroupCheckCellProvider(tableViewer, remoteConditionsList));
+		
+		TableViewerColumn relationalDropDownColumn = createTableColumns(tableViewer, "Relational Operator");
+		relationalDropDownColumn.setLabelProvider(getRelationalCellProvider(tableViewer, remoteConditionsList));
+		
+		
+		TableViewerColumn fieldNameDropDownColumn = createTableColumns(tableViewer, "Field Name");
+		fieldNameDropDownColumn.setLabelProvider(getFieldNamecellProvider(tableViewer, remoteConditionsList));
+		
+		TableViewerColumn conditionalDropDownColumn = createTableColumns(tableViewer, "Conditional Operator");
+		conditionalDropDownColumn.setLabelProvider(getConditionalCellProvider(tableViewer, remoteConditionsList));
+		
+		TableViewerColumn valueTextBoxColumn = createTableColumns(tableViewer, "Value");
+		valueTextBoxColumn.setLabelProvider(getValueCellProvider(tableViewer, remoteConditionsList));
+		
+		tableViewer.setInput(remoteConditionsList);
+		remoteConditionsList.add(0, new Condition());
+		tableViewer.refresh();
+		
+		
+		Composite buttonComposite = new Composite(composite, SWT.NONE);
+		buttonComposite.setLayout(new GridLayout(2, false));
+		buttonComposite.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false, 1, 1));
+		
+		Button btnOk = new Button(buttonComposite, SWT.NONE);
+		btnOk.setText("OK");
+		btnOk.addSelectionListener(getOkButtonListener(remoteConditionsList));
+		
+		Button btnCancel = new Button(buttonComposite, SWT.NONE);
+		btnCancel.setText("Cancel");
+		
+	}
+
+	private void createLocalTabItem(TabFolder tabFolder, TableViewer tableViewer) {
 		TabItem tbtmLocal = new TabItem(tabFolder, SWT.NONE);
 		tbtmLocal.setText("Local");
 		
@@ -133,15 +193,246 @@ public class FilterWithTables extends Dialog {
 		composite.setLayout(new GridLayout(1, false));
 		
 		
-		localTableViewer = new TableViewer(composite, SWT.BORDER | SWT.FULL_SELECTION | SWT.V_SCROLL);
-		localTableViewer.setContentProvider(new ArrayContentProvider());
-		Table table = localTableViewer.getTable();
+		tableViewer = new TableViewer(composite, SWT.BORDER | SWT.FULL_SELECTION | SWT.V_SCROLL);
+		tableViewer.setContentProvider(new ArrayContentProvider());
+		Table table = tableViewer.getTable();
 		table.setHeaderVisible(true);
 		table.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 1, 1));
 		
 		
-		TableViewerColumn addButtonTableViewerColumn = createTableColumns(localTableViewer, "");
-		addButtonTableViewerColumn.setLabelProvider(new CellLabelProvider() {
+		TableViewerColumn addButtonTableViewerColumn = createTableColumns(tableViewer, "");
+		addButtonTableViewerColumn.setLabelProvider(getAddButtonCellProvider(tableViewer, localConditionsList));
+		
+		TableViewerColumn removeButtonTableViewerColumn = createTableColumns(tableViewer, "");
+		removeButtonTableViewerColumn.setLabelProvider(getRemoveButtonCellProvider(tableViewer, localConditionsList));
+		
+		TableViewerColumn groupButtonTableViewerColumn = createTableColumns(tableViewer, "Group");
+		groupButtonTableViewerColumn.setLabelProvider(getGroupCheckCellProvider(tableViewer, localConditionsList));
+		
+		TableViewerColumn relationalDropDownColumn = createTableColumns(tableViewer, "Relational Operator");
+		relationalDropDownColumn.setLabelProvider(getRelationalCellProvider(tableViewer, localConditionsList));
+		
+		
+		TableViewerColumn fieldNameDropDownColumn = createTableColumns(tableViewer, "Field Name");
+		fieldNameDropDownColumn.setLabelProvider(getFieldNamecellProvider(tableViewer, localConditionsList));
+		
+		TableViewerColumn conditionalDropDownColumn = createTableColumns(tableViewer, "Conditional Operator");
+		conditionalDropDownColumn.setLabelProvider(getConditionalCellProvider(tableViewer, localConditionsList));
+		
+		TableViewerColumn valueTextBoxColumn = createTableColumns(tableViewer, "Value");
+		valueTextBoxColumn.setLabelProvider(getValueCellProvider(tableViewer, localConditionsList));
+		
+		tableViewer.setInput(localConditionsList);
+		localConditionsList.add(0, new Condition());
+		tableViewer.refresh();
+		
+		
+		Composite buttonComposite = new Composite(composite, SWT.NONE);
+		buttonComposite.setLayout(new GridLayout(2, false));
+		buttonComposite.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false, 1, 1));
+		
+		Button btnOk = new Button(buttonComposite, SWT.NONE);
+		btnOk.setText("OK");
+		btnOk.addSelectionListener(getOkButtonListener(localConditionsList));
+		
+		Button btnCancel = new Button(buttonComposite, SWT.NONE);
+		btnCancel.setText("Cancel");
+		
+	}
+
+	private CellLabelProvider getValueCellProvider(final TableViewer tableViewer, final List<Condition> conditionsList) {
+		return new CellLabelProvider() {
+			
+			@Override
+			public void update(ViewerCell cell) {
+				final TableItem item = (TableItem) cell.getItem();
+				// DO NOT REMOVE THIS CONDITION. The condition is return to
+				// prevent multiple updates on single item
+				if (item.getData("UPDATED7") == null) {
+					item.setData("UPDATED7", "TRUE");
+				} else {
+					return;
+				}
+				addTextBoxInTable(tableViewer, item, VALUE_TEXT_BOX, VALUE_TEXT_PANE, VALUE_EDITOR, cell.getColumnIndex(), getTextBoxListener(conditionsList));
+				item.addDisposeListener(new DisposeListener() {
+					
+					@Override
+					public void widgetDisposed(DisposeEvent e) {
+						Text valueText = (Text) item.getData(VALUE_TEXT_BOX);
+						((TableEditor)valueText.getData(VALUE_EDITOR)).dispose();
+						valueText.dispose();
+						
+						Composite composite = (Composite)item.getData(VALUE_TEXT_PANE);
+						composite.dispose();
+					}
+				});
+			}
+		};
+	}
+
+	private CellLabelProvider getConditionalCellProvider(final TableViewer tableViewer, final List<Condition> conditionsList) {
+		return new CellLabelProvider() {
+			
+			@Override
+			public void update(ViewerCell cell) {
+				final TableItem item = (TableItem) cell.getItem();
+				// DO NOT REMOVE THIS CONDITION. The condition is return to
+				// prevent multiple updates on single item
+				if (item.getData("UPDATED6") == null) {
+					item.setData("UPDATED6", "TRUE");
+				} else {
+					return;
+				}
+				addComboInTable(tableViewer, item, CONDITIONAL_OPERATORS, CONDITIONAL_COMBO_PANE, CONDITIONAL_EDITOR, cell.getColumnIndex(), new String[]{}, 
+						getConditionalOperatorSelectionListener(conditionsList));
+				item.addDisposeListener(new DisposeListener() {
+					
+					@Override
+					public void widgetDisposed(DisposeEvent e) {
+						Combo combo = (Combo) item.getData(CONDITIONAL_OPERATORS);
+						((TableEditor)combo.getData(CONDITIONAL_EDITOR)).dispose();
+						combo.dispose();
+						
+						Composite composite = (Composite)item.getData(CONDITIONAL_COMBO_PANE);
+						composite.dispose();
+					}
+				});
+			}
+		};
+	}
+
+	private CellLabelProvider getFieldNamecellProvider(final TableViewer tableViewer, final List<Condition> conditionsList) {
+		return new CellLabelProvider() {
+			
+			@Override
+			public void update(ViewerCell cell) {
+				final TableItem item = (TableItem) cell.getItem();
+				// DO NOT REMOVE THIS CONDITION. The condition is return to
+				// prevent multiple updates on single item
+				if (item.getData("UPDATED5") == null) {
+					item.setData("UPDATED5", "TRUE");
+				} else {
+					return;
+				}
+				addComboInTable(tableViewer, item, FIELD_NAMES, FIELD_COMBO_PANE, FIELD_EDITOR, cell.getColumnIndex(), fieldNames, 
+						getFieldNameSelectionListener(tableViewer, conditionsList));
+				item.addDisposeListener(new DisposeListener() {
+					
+					@Override
+					public void widgetDisposed(DisposeEvent e) {
+						Combo combo = (Combo) item.getData(FIELD_NAMES);
+						((TableEditor)combo.getData(FIELD_EDITOR)).dispose();
+						combo.dispose();
+						
+						Composite composite = (Composite)item.getData(FIELD_COMBO_PANE);
+						composite.dispose();
+					}
+				});
+			}
+		};
+	}
+
+	private CellLabelProvider getRelationalCellProvider(final TableViewer tableViewer, final List<Condition> conditionsList) {
+		return new CellLabelProvider() {
+			
+			@Override
+			public void update(ViewerCell cell) {
+				final TableItem item = (TableItem) cell.getItem();
+				// DO NOT REMOVE THIS CONDITION. The condition is return to
+				// prevent multiple updates on single item
+				if (item.getData("UPDATED4") == null) {
+					item.setData("UPDATED4", "TRUE");
+				} else {
+					return;
+				}
+				addComboInTable(tableViewer, item, RELATIONAL_OPERATORS, RELATIONAL_COMBO_PANE, RELATIONAL_EDITOR, cell.getColumnIndex(), relationalOperators, 
+						getRelationalOpSelectionListener(conditionsList));
+				Combo combo = (Combo) item.getData(RELATIONAL_OPERATORS);
+				if(tableViewer.getTable().indexOf(item) == 0){
+					combo.setVisible(false);
+				}
+				else {
+					combo.setVisible(true);
+				}
+				item.addDisposeListener(new DisposeListener() {
+					
+					@Override
+					public void widgetDisposed(DisposeEvent e) {
+						Combo combo = (Combo) item.getData(RELATIONAL_OPERATORS);
+						((TableEditor)combo.getData(RELATIONAL_EDITOR)).dispose();
+						combo.dispose();
+						
+						Composite composite = (Composite)item.getData(RELATIONAL_COMBO_PANE);
+						composite.dispose();
+					}
+				});
+			}
+		};
+	}
+
+	private CellLabelProvider getGroupCheckCellProvider(final TableViewer tableViewer, final List<Condition> conditionsList) {
+		return new CellLabelProvider() {
+			
+			@Override
+			public void update(ViewerCell cell) {
+				final TableItem item = (TableItem) cell.getItem();
+				// DO NOT REMOVE THIS CONDITION. The condition is return to
+				// prevent multiple updates on single item
+				if (item.getData("UPDATED3") == null) {
+					item.setData("UPDATED3", "TRUE");
+				} else {
+					return;
+				}
+				addCheckButtonInTable(tableViewer, item, GROUP_CHECKBOX, GROUP_CHECKBOX_PANE, GROUP_EDITOR, cell.getColumnIndex(), 
+						removeButtonListener(tableViewer, conditionsList));
+				item.addDisposeListener(new DisposeListener() {
+					
+					@Override
+					public void widgetDisposed(DisposeEvent e) {
+						Button groupButton = (Button) item.getData(GROUP_CHECKBOX);
+						((TableEditor)groupButton.getData(GROUP_EDITOR)).dispose();
+						groupButton.dispose();
+						
+						Composite composite = (Composite)item.getData(GROUP_CHECKBOX_PANE);
+						composite.dispose();
+					}
+				});
+			}
+		};
+	}
+
+	private CellLabelProvider getRemoveButtonCellProvider(final TableViewer tableViewer, final List<Condition> conditionsList) {
+		return new CellLabelProvider() {
+			
+			@Override
+			public void update(ViewerCell cell) {
+				final TableItem item = (TableItem) cell.getItem();
+				// DO NOT REMOVE THIS CONDITION. The condition is return to
+				// prevent multiple updates on single item
+				if (item.getData("UPDATED2") == null) {
+					item.setData("UPDATED2", "TRUE");
+				} else {
+					return;
+				}
+				addButtonInTable(tableViewer, item, REMOVE, REMOVE_BUTTON_PANE, REMOVE_EDITOR, cell.getColumnIndex(), removeButtonListener(tableViewer, conditionsList));
+				item.addDisposeListener(new DisposeListener() {
+					
+					@Override
+					public void widgetDisposed(DisposeEvent e) {
+						Button removeButton = (Button) item.getData(REMOVE);
+						((TableEditor)removeButton.getData(REMOVE_EDITOR)).dispose();
+						removeButton.dispose();
+						
+						Composite composite = (Composite)item.getData(REMOVE_BUTTON_PANE);
+						composite.dispose();
+					}
+				});
+			}
+		};
+	}
+
+	private CellLabelProvider getAddButtonCellProvider(final TableViewer tableViewer, final List<Condition> conditionsList) {
+		return new CellLabelProvider() {
 			
 			@Override
 			public void update(ViewerCell cell) {
@@ -153,7 +444,7 @@ public class FilterWithTables extends Dialog {
 				} else {
 					return;
 				}
-				addButtonInTable(localTableViewer, item, ADD, ADD_BUTTON_PANE, ADD_EDITOR, cell.getColumnIndex(), addButtonListener());
+				addButtonInTable(tableViewer, item, ADD, ADD_BUTTON_PANE, ADD_EDITOR, cell.getColumnIndex(), addButtonListener(tableViewer,conditionsList));
 				item.addDisposeListener(new DisposeListener() {
 					
 					@Override
@@ -168,199 +459,7 @@ public class FilterWithTables extends Dialog {
 				});
 			}
 			
-		});
-		
-		TableViewerColumn removeButtonTableViewerColumn = createTableColumns(localTableViewer, "");
-		removeButtonTableViewerColumn.setLabelProvider(new CellLabelProvider() {
-			
-			@Override
-			public void update(ViewerCell cell) {
-				final TableItem item = (TableItem) cell.getItem();
-				// DO NOT REMOVE THIS CONDITION. The condition is return to
-				// prevent multiple updates on single item
-				if (item.getData("UPDATED2") == null) {
-					item.setData("UPDATED2", "TRUE");
-				} else {
-					return;
-				}
-				addButtonInTable(localTableViewer, item, REMOVE, REMOVE_BUTTON_PANE, REMOVE_EDITOR, cell.getColumnIndex(), removeButtonListener());
-				item.addDisposeListener(new DisposeListener() {
-					
-					@Override
-					public void widgetDisposed(DisposeEvent e) {
-						Button removeButton = (Button) item.getData(REMOVE);
-						((TableEditor)removeButton.getData(REMOVE_EDITOR)).dispose();
-						removeButton.dispose();
-						
-						Composite composite = (Composite)item.getData(REMOVE_BUTTON_PANE);
-						composite.dispose();
-					}
-				});
-			}
-		});
-		
-		TableViewerColumn groupButtonTableViewerColumn = createTableColumns(localTableViewer, "Group");
-		groupButtonTableViewerColumn.setLabelProvider(new CellLabelProvider() {
-			
-			@Override
-			public void update(ViewerCell cell) {
-				final TableItem item = (TableItem) cell.getItem();
-				// DO NOT REMOVE THIS CONDITION. The condition is return to
-				// prevent multiple updates on single item
-				if (item.getData("UPDATED3") == null) {
-					item.setData("UPDATED3", "TRUE");
-				} else {
-					return;
-				}
-				addCheckButtonInTable(localTableViewer, item, GROUP_CHECKBOX, GROUP_CHECKBOX_PANE, GROUP_EDITOR, cell.getColumnIndex(), removeButtonListener());
-				item.addDisposeListener(new DisposeListener() {
-					
-					@Override
-					public void widgetDisposed(DisposeEvent e) {
-						Button groupButton = (Button) item.getData(GROUP_CHECKBOX);
-						((TableEditor)groupButton.getData(GROUP_EDITOR)).dispose();
-						groupButton.dispose();
-						
-						Composite composite = (Composite)item.getData(GROUP_CHECKBOX_PANE);
-						composite.dispose();
-					}
-				});
-			}
-		});
-		
-		TableViewerColumn relationalDropDownColumn = createTableColumns(localTableViewer, "Relational Operator");
-		relationalDropDownColumn.setLabelProvider(new CellLabelProvider() {
-			
-			@Override
-			public void update(ViewerCell cell) {
-				final TableItem item = (TableItem) cell.getItem();
-				// DO NOT REMOVE THIS CONDITION. The condition is return to
-				// prevent multiple updates on single item
-				if (item.getData("UPDATED4") == null) {
-					item.setData("UPDATED4", "TRUE");
-				} else {
-					return;
-				}
-				addComboInTable(localTableViewer, item, RELATIONAL_OPERATORS, RELATIONAL_COMBO_PANE, RELATIONAL_EDITOR, cell.getColumnIndex(), relationalOperators, getRelationalOpSelectionListener());
-				item.addDisposeListener(new DisposeListener() {
-					
-					@Override
-					public void widgetDisposed(DisposeEvent e) {
-						Combo combo = (Combo) item.getData(RELATIONAL_OPERATORS);
-						((TableEditor)combo.getData(RELATIONAL_EDITOR)).dispose();
-						combo.dispose();
-						
-						Composite composite = (Composite)item.getData(RELATIONAL_COMBO_PANE);
-						composite.dispose();
-					}
-				});
-			}
-		});
-		
-		
-		TableViewerColumn fieldNameDropDownColumn = createTableColumns(localTableViewer, "Field Name");
-		fieldNameDropDownColumn.setLabelProvider(new CellLabelProvider() {
-			
-			@Override
-			public void update(ViewerCell cell) {
-				final TableItem item = (TableItem) cell.getItem();
-				// DO NOT REMOVE THIS CONDITION. The condition is return to
-				// prevent multiple updates on single item
-				if (item.getData("UPDATED5") == null) {
-					item.setData("UPDATED5", "TRUE");
-				} else {
-					return;
-				}
-				addComboInTable(localTableViewer, item, FIELD_NAMES, FIELD_COMBO_PANE, FIELD_EDITOR, cell.getColumnIndex(), fieldNames, getFieldNameSelectionListener());
-				item.addDisposeListener(new DisposeListener() {
-					
-					@Override
-					public void widgetDisposed(DisposeEvent e) {
-						Combo combo = (Combo) item.getData(FIELD_NAMES);
-						((TableEditor)combo.getData(FIELD_EDITOR)).dispose();
-						combo.dispose();
-						
-						Composite composite = (Composite)item.getData(FIELD_COMBO_PANE);
-						composite.dispose();
-					}
-				});
-			}
-		});
-		
-		TableViewerColumn conditionalDropDownColumn = createTableColumns(localTableViewer, "Conditional Operator");
-		conditionalDropDownColumn.setLabelProvider(new CellLabelProvider() {
-			
-			@Override
-			public void update(ViewerCell cell) {
-				final TableItem item = (TableItem) cell.getItem();
-				// DO NOT REMOVE THIS CONDITION. The condition is return to
-				// prevent multiple updates on single item
-				if (item.getData("UPDATED6") == null) {
-					item.setData("UPDATED6", "TRUE");
-				} else {
-					return;
-				}
-				addComboInTable(localTableViewer, item, CONDITIONAL_OPERATORS, CONDITIONAL_COMBO_PANE, CONDITIONAL_EDITOR, cell.getColumnIndex(), new String[]{}, getConditionalOperatorSelectionListener());
-				item.addDisposeListener(new DisposeListener() {
-					
-					@Override
-					public void widgetDisposed(DisposeEvent e) {
-						Combo combo = (Combo) item.getData(CONDITIONAL_OPERATORS);
-						((TableEditor)combo.getData(CONDITIONAL_EDITOR)).dispose();
-						combo.dispose();
-						
-						Composite composite = (Composite)item.getData(CONDITIONAL_COMBO_PANE);
-						composite.dispose();
-					}
-				});
-			}
-		});
-		
-		TableViewerColumn valueTextBoxColumn = createTableColumns(localTableViewer, "Value");
-		valueTextBoxColumn.setLabelProvider(new CellLabelProvider() {
-			
-			@Override
-			public void update(ViewerCell cell) {
-				final TableItem item = (TableItem) cell.getItem();
-				// DO NOT REMOVE THIS CONDITION. The condition is return to
-				// prevent multiple updates on single item
-				if (item.getData("UPDATED7") == null) {
-					item.setData("UPDATED7", "TRUE");
-				} else {
-					return;
-				}
-				addTextBoxInTable(localTableViewer.getTable(), localTableViewer, item, VALUE_TEXT_BOX, VALUE_TEXT_PANE, VALUE_EDITOR, cell.getColumnIndex(), getTextBoxListener());
-				item.addDisposeListener(new DisposeListener() {
-					
-					@Override
-					public void widgetDisposed(DisposeEvent e) {
-						Text valueText = (Text) item.getData(VALUE_TEXT_BOX);
-						((TableEditor)valueText.getData(VALUE_EDITOR)).dispose();
-						valueText.dispose();
-						
-						Composite composite = (Composite)item.getData(VALUE_TEXT_PANE);
-						composite.dispose();
-					}
-				});
-			}
-		});
-		
-		localTableViewer.setInput(conditionsList);
-		conditionsList.add(0, new Condition());
-		localTableViewer.refresh();
-		
-		
-		Composite composite_1 = new Composite(composite, SWT.NONE);
-		composite_1.setLayout(new GridLayout(2, false));
-		composite_1.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false, 1, 1));
-		
-		Button btnOk = new Button(composite_1, SWT.NONE);
-		btnOk.setText("OK");
-		btnOk.addSelectionListener(getOkButtonListener());
-		
-		Button btnCancel = new Button(composite_1, SWT.NONE);
-		btnCancel.setText("Cancel");
-		
+		};
 	}
 	
 	private TableViewerColumn createTableColumns(TableViewer tableViewer, String columnLabel) {
@@ -371,17 +470,17 @@ public class FilterWithTables extends Dialog {
 		return tableViewerColumn;
 	}
 
-	private void addTextBoxInTable(Table table, TableViewer tableViewer, TableItem tableItem, String textBoxName, 
+	private void addTextBoxInTable(TableViewer tableViewer, TableItem tableItem, String textBoxName, 
 			String valueTextPane, String editorName, int columnIndex, Listener listener) {
-		final Composite buttonPane = new Composite(table, SWT.NONE);
+		final Composite buttonPane = new Composite(tableViewer.getTable(), SWT.NONE);
 		buttonPane.setLayout(new FillLayout());
 		final Text text = new Text(buttonPane, SWT.NONE);
 		text.addListener(SWT.Verify, listener);
-		text.setData(ROW_INDEX, table.indexOf(tableItem));
+		text.setData(ROW_INDEX, tableViewer.getTable().indexOf(tableItem));
 		tableItem.setData(textBoxName, text);
 		tableItem.setData(valueTextPane, buttonPane);
 		
-		final TableEditor editor = new TableEditor(table);
+		final TableEditor editor = new TableEditor(tableViewer.getTable());
 		editor.grabHorizontal = true;
 		editor.grabVertical = true;
 		editor.setEditor(buttonPane, tableItem, columnIndex);
@@ -447,7 +546,7 @@ public class FilterWithTables extends Dialog {
 		button.setData(editorName, editor);
 	}
 	
-	private  Listener getTextBoxListener() {
+	private  Listener getTextBoxListener(final List<Condition> conditionsList) {
 		Listener listener = new Listener() {
 			
 			@Override
@@ -466,7 +565,7 @@ public class FilterWithTables extends Dialog {
 		return listener;
 	}
 	
-	private SelectionListener getFieldNameSelectionListener() {
+	private SelectionListener getFieldNameSelectionListener(final TableViewer tableViewer, final List<Condition> conditionsList) {
 		SelectionListener listener = new SelectionListener() {
 			
 			@Override
@@ -479,7 +578,7 @@ public class FilterWithTables extends Dialog {
 				
 				if(StringUtils.isNotBlank(fieldName)){
 					String fieldType = fieldsAndTypes.get(fieldName);
-					TableItem item = localTableViewer.getTable().getItem(index);
+					TableItem item = tableViewer.getTable().getItem(index);
 					Combo conditionalCombo = (Combo) item.getData(CONDITIONAL_OPERATORS);
 					conditionalCombo.setItems(typeBasedConditionalOperators.get(fieldType));
 					
@@ -496,7 +595,7 @@ public class FilterWithTables extends Dialog {
 		return listener;
 	}
 	
-	private SelectionListener getConditionalOperatorSelectionListener() {
+	private SelectionListener getConditionalOperatorSelectionListener(final List<Condition> conditionsList) {
 		SelectionListener listener = new SelectionListener() {
 			
 			@Override
@@ -518,7 +617,7 @@ public class FilterWithTables extends Dialog {
 		return listener;
 	}
 	
-	private SelectionListener getRelationalOpSelectionListener() {
+	private SelectionListener getRelationalOpSelectionListener(final List<Condition> conditionsList) {
 		SelectionListener listener = new SelectionListener() {
 			
 			@Override
@@ -540,7 +639,7 @@ public class FilterWithTables extends Dialog {
 		return listener;
 	}
 	
-	private SelectionListener addButtonListener() {
+	private SelectionListener addButtonListener(final TableViewer tableViewer, final List<Condition> conditionsList) {
 		SelectionListener listener = new SelectionListener() {
 			
 			@Override
@@ -548,27 +647,10 @@ public class FilterWithTables extends Dialog {
 				Button button = (Button) e.getSource();
 				
 				conditionsList.add(conditionsList.size(), new Condition());
-				localTableViewer.refresh();
+				tableViewer.refresh();
 				
 			}
 			
-			private void updateIndexes(TableItem tabItem, int index) {
-				Button addButton = (Button) tabItem.getData(ADD);
-				addButton.setData(ROW_INDEX, index);
-				Button removeButton = (Button) tabItem.getData(REMOVE);
-				removeButton.setData(ROW_INDEX, index);
-				
-				Combo conditionalCombo = (Combo) tabItem.getData(CONDITIONAL_OPERATORS);
-				conditionalCombo.setData(ROW_INDEX, index);
-				Combo fieldNamesCombo = (Combo) tabItem.getData(FIELD_NAMES);
-				fieldNamesCombo.setData(ROW_INDEX, index);
-				Combo relationalOperatorsCombo = (Combo) tabItem.getData(RELATIONAL_OPERATORS);
-				relationalOperatorsCombo.setData(ROW_INDEX, index);
-				
-				Text text = (Text)tabItem.getData(VALUE_TEXT_BOX);
-				text.setData(ROW_INDEX, index);
-			}
-
 			@Override
 			public void widgetDefaultSelected(SelectionEvent e) {
 				
@@ -577,7 +659,7 @@ public class FilterWithTables extends Dialog {
 		return listener;
 	}
 
-	private SelectionListener removeButtonListener() {
+	private SelectionListener removeButtonListener(final TableViewer tableViewer, final List<Condition> conditionsList) {
 		SelectionListener listener = new SelectionListener() {
 			
 			@Override
@@ -585,41 +667,11 @@ public class FilterWithTables extends Dialog {
 				if(conditionsList.size() > 1){
 					Button button = (Button) e.getSource();
 					int removeIndex = (int) button.getData(ROW_INDEX);
-					TableItem tabItem = localTableViewer.getTable().getItem(removeIndex);
 					
 					conditionsList.remove(removeIndex);
-					localTableViewer.refresh();
-/*					for (int index = 0; index < conditionsList.size(); index++) {
-						tabItem = localTableViewer.getTable().getItem(index);
-						updateIndexes(tabItem, index);
-						System.out.println("FilterWithTables.addButtonListener().new SelectionListener() {...}.widgetSelected()" + index);
-						Combo combo = (Combo) tabItem.getData(RELATIONAL_OPERATORS);
-						if(index == 0){
-							combo.setVisible(false);
-						}else{
-							combo.setVisible(true);
-						}
-					}
-*/					System.out.println("FilterWithTables.removeButtonListener().new SelectionListener() {...}.widgetSelected()" + removeIndex);
+					System.out.println("FilterWithTables.removeButtonListener().new SelectionListener() {...}.widgetSelected()" + removeIndex);
 				}
-				localTableViewer.refresh();
-			}
-			
-			private void updateIndexes(TableItem tabItem, int index) {
-				Button addButton = (Button) tabItem.getData(ADD);
-				addButton.setData(ROW_INDEX, index);
-				Button removeButton = (Button) tabItem.getData(REMOVE);
-				removeButton.setData(ROW_INDEX, index);
-				
-				Combo conditionalCombo = (Combo) tabItem.getData(CONDITIONAL_OPERATORS);
-				conditionalCombo.setData(ROW_INDEX, index);
-				Combo fieldNamesCombo = (Combo) tabItem.getData(FIELD_NAMES);
-				fieldNamesCombo.setData(ROW_INDEX, index);
-				Combo relationalOperatorsCombo = (Combo) tabItem.getData(RELATIONAL_OPERATORS);
-				relationalOperatorsCombo.setData(ROW_INDEX, index);
-				
-				Text text = (Text)tabItem.getData(VALUE_TEXT_BOX);
-				text.setData(ROW_INDEX, index);
+				tableViewer.refresh();
 			}
 			
 			@Override
@@ -629,7 +681,7 @@ public class FilterWithTables extends Dialog {
 		return listener;
 	}
 	
-	private SelectionListener getOkButtonListener() {
+	private SelectionListener getOkButtonListener(final List<Condition> conditionsList) {
 		SelectionListener listener = new SelectionListener() {
 			
 			@Override
@@ -654,12 +706,6 @@ public class FilterWithTables extends Dialog {
 		};
 		
 		return listener;
-	}
-	
-	private void getButton(Button button, String buttonName, Composite buttonComposite){
-		button = new Button(buttonComposite, SWT.NONE);
-		button.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false, 1, 1));
-		button.setText(buttonName);
 	}
 	
 	class Condition{
