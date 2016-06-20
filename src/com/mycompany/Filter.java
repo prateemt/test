@@ -1,5 +1,8 @@
 package com.bitwise.app.graph.propertywindow;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.fieldassist.AutoCompleteField;
 import org.eclipse.jface.fieldassist.ComboContentAdapter;
@@ -14,6 +17,8 @@ import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
@@ -22,6 +27,7 @@ import org.eclipse.swt.widgets.Text;
 public class Filter extends Dialog {
 	private Text text;
 	private Composite allRowsComposite;
+	private List<com.bitwise.app.graph.propertywindow.Condition> conditionsList;
 	
 	private String[] fields = new String[]{"firstName", "lastName", "salary", "birthDate"};
 	
@@ -36,6 +42,7 @@ public class Filter extends Dialog {
 	public Filter(Shell parentShell) {
 		super(parentShell);
 		setShellStyle(SWT.CLOSE | SWT.RESIZE | SWT.TITLE);
+		conditionsList = new ArrayList<>();
 	}
 
 	/**
@@ -69,11 +76,42 @@ public class Filter extends Dialog {
 		buttonComposite.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, true, false, 1, 1));
 		
 		Button okButton = new Button(buttonComposite, SWT.NONE);
+		okButton.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				StringBuffer buffer = new StringBuffer();
+				Control[] children = allRowsComposite.getChildren();
+				for(int index = 0; index < children.length; index++){
+					Condition condition = conditionsList.get(index);
+					Composite composite = (Composite) children[index];
+					
+					Combo combo = (Combo) composite.getChildren()[3];
+					condition.setRelationalOperator(combo.getText());
+					
+					combo = (Combo) composite.getChildren()[4];
+					condition.setFieldName(combo.getText());
+					
+					combo = (Combo) composite.getChildren()[5];
+					condition.setConditionalOperator(combo.getText());
+					
+					Text text = (Text) composite.getChildren()[6];
+					condition.setValue(text.getText());
+					
+					if(index !=0){
+						buffer.append(" ").append(condition.getRelationalOperator()).append(" ");
+					}
+					buffer.append(condition.getFieldName()).append(" ").append(condition.getConditionalOperator()).append(" ").append(condition.getValue());
+				}
+				
+				System.out.println(buffer);
+			}
+		});
 		okButton.setText("Ok");
 		
 		Button cancelButton = new Button(buttonComposite, SWT.NONE);
 		cancelButton.setText("Cancel");
 		
+		conditionsList.add(0, new Condition());
 		addRow(getComposite());
 		disableFirstComposite();
 		return container;
@@ -81,9 +119,11 @@ public class Filter extends Dialog {
 
 	private Composite getComposite(){
 		Composite rowComposite = new Composite(allRowsComposite, SWT.NONE);
-		rowComposite.setLayout(new GridLayout(7, false));
-		GridData gridData = new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1);
-		gridData.widthHint = 1176;
+		GridLayout layout = new GridLayout(7, false);
+		
+		rowComposite.setLayout(layout);
+		GridData gridData = new GridData(SWT.FILL, SWT.CENTER, false, false, 1, 1);
+		gridData.widthHint = 1161;
 		rowComposite.setLayoutData(gridData);
 		return rowComposite;
 	}
@@ -95,10 +135,20 @@ public class Filter extends Dialog {
 			public void widgetSelected(SelectionEvent e) {
 				Composite newComposite = getComposite();
 				addRow(newComposite);
-				newComposite.moveAbove(((Button)e.getSource()).getParent());
+				Composite currentComposite = ((Button)e.getSource()).getParent();
+				newComposite.moveAbove(currentComposite);
 				
 				allRowsComposite.getShell().layout(new Control[] { newComposite });
 				disableFirstComposite();
+				conditionsList.add( (int) currentComposite.getData("rowIndex"), new Condition());
+				updateReferences();
+			}
+
+			private void updateReferences() {
+				Control[] children = allRowsComposite.getChildren();
+				for(int i = 0; i < children.length; i++){
+					((Composite)children[0]).setData("rowIndex", i);
+				}
 			}
 		});
 		addButton.setText("+");
@@ -107,14 +157,9 @@ public class Filter extends Dialog {
 		removeButton.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				Button button = new Button(((Button)e.getSource()).getParent(), SWT.NONE);
-				button.setText("Something");
-				button.moveAbove(((Button)e.getSource()));
-				allRowsComposite.getShell().layout(new Control[] { button });
-				disableFirstComposite();
-				/*Button button = ((Button)e.getSource());
+				Button button = ((Button)e.getSource());
 				button.getParent().dispose();
-				allRowsComposite.layout(true);*/
+				allRowsComposite.layout(true);
 			}
 		});
 		removeButton.setText("*");
@@ -137,6 +182,8 @@ public class Filter extends Dialog {
 		
 		text = new Text(composite, SWT.BORDER);
 		text.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
+		
+		composite.setData("rowIndex", 0);
 	}
 
 	private String[] getOperatorsBasedOnDataType(String dataType) {
@@ -157,7 +204,6 @@ public class Filter extends Dialog {
 				setVisible = false;
 			}
 			Composite composite = (Composite) children[index];
-			composite.getChildren()[2].setVisible(setVisible);
 			composite.getChildren()[3].setVisible(setVisible);
 		}
 	}
