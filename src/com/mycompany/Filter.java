@@ -101,8 +101,20 @@ public class Filter extends Dialog {
 					Combo conditionalCombo = (Combo) composite.getChildren()[5];
 					Text text = (Text) composite.getChildren()[6];
 					
-					//since we wan to color all non valid fields
-					if(validateCombo(relationalCombo) & validateCombo(fieldNameCombo)
+					//single & since we want to color all non valid fields
+					if(index == 0 && (validateCombo(fieldNameCombo)
+						 & validateCombo(conditionalCombo) & validateText(text))){//first combo is not validated
+						condition.setRelationalOperator(relationalCombo.getText());
+						condition.setFieldName(fieldNameCombo.getText());
+						condition.setConditionalOperator(conditionalCombo.getText());
+						condition.setValue(text.getText());
+					
+						if(index !=0){
+							buffer.append(" ").append(condition.getRelationalOperator()).append(" ");
+						}
+						buffer.append(condition.getFieldName()).append(" ").append(condition.getConditionalOperator()).append(" ").append(condition.getValue());	
+					}
+					else if(validateCombo(relationalCombo) & validateCombo(fieldNameCombo)
 					 & validateCombo(conditionalCombo) & validateText(text)){
 						condition.setRelationalOperator(relationalCombo.getText());
 						condition.setFieldName(fieldNameCombo.getText());
@@ -113,11 +125,15 @@ public class Filter extends Dialog {
 							buffer.append(" ").append(condition.getRelationalOperator()).append(" ");
 						}
 						buffer.append(condition.getFieldName()).append(" ").append(condition.getConditionalOperator()).append(" ").append(condition.getValue());
+					}else{
+						MessageDialog dialog = new MessageDialog(getShell(),"Fieds are invalid", null,
+					            "Not all fields are valid", MessageDialog.ERROR, new String[] { "Ok" }, 0) ;	
+						dialog.open();
 					}
 				}
-				MessageDialog dialog = new MessageDialog(getShell(),"Fieds are invalid", null,
-			            "Not all fields are valid", MessageDialog.ERROR, new String[] { "Ok" }, 0) ;	
-				dialog.open();
+				if(StringUtils.isNotBlank(buffer.toString())){
+					System.out.println(buffer);
+				}
 			}
 			
 		});
