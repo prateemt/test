@@ -7,10 +7,14 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.draw2d.ColorConstants;
 import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.fieldassist.AutoCompleteField;
 import org.eclipse.jface.fieldassist.ComboContentAdapter;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.ModifyEvent;
+import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
@@ -27,7 +31,6 @@ import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.widgets.Text;
 
 public class Filter extends Dialog {
-	private Text text;
 	private Composite allRowsComposite;
 	private List<Condition> conditionsList;
 	private Map<String,String[]> typeBasedConditionalOperators = new HashMap<>();
@@ -70,6 +73,9 @@ public class Filter extends Dialog {
 		TabItem tbtmRemote = new TabItem(tabFolder, SWT.NONE);
 		tbtmRemote.setText("Remote");
 		
+		TabItem tbtmLocal = new TabItem(tabFolder, SWT.NONE);
+		tbtmRemote.setText("Local");
+		
 		allRowsComposite = new Composite(tabFolder, SWT.NONE);
 		allRowsComposite.setLayout(new GridLayout(1, false));
 		allRowsComposite.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true, 1, 1));
@@ -90,26 +96,30 @@ public class Filter extends Dialog {
 					Condition condition = conditionsList.get(index);
 					Composite composite = (Composite) children[index];
 					
-					Combo combo = (Combo) composite.getChildren()[3];
-					condition.setRelationalOperator(combo.getText());
-					
-					combo = (Combo) composite.getChildren()[4];
-					condition.setFieldName(combo.getText());
-					
-					combo = (Combo) composite.getChildren()[5];
-					condition.setConditionalOperator(combo.getText());
-					
+					Combo relationalCombo = (Combo) composite.getChildren()[3];
+					Combo fieldNameCombo = (Combo) composite.getChildren()[4];
+					Combo conditionalCombo = (Combo) composite.getChildren()[5];
 					Text text = (Text) composite.getChildren()[6];
-					condition.setValue(text.getText());
 					
-					if(index !=0){
-						buffer.append(" ").append(condition.getRelationalOperator()).append(" ");
+					//since we wan to color all non valid fields
+					if(validateCombo(relationalCombo) & validateCombo(fieldNameCombo)
+					 & validateCombo(conditionalCombo) & validateText(text)){
+						condition.setRelationalOperator(relationalCombo.getText());
+						condition.setFieldName(fieldNameCombo.getText());
+						condition.setConditionalOperator(conditionalCombo.getText());
+						condition.setValue(text.getText());
+					
+						if(index !=0){
+							buffer.append(" ").append(condition.getRelationalOperator()).append(" ");
+						}
+						buffer.append(condition.getFieldName()).append(" ").append(condition.getConditionalOperator()).append(" ").append(condition.getValue());
 					}
-					buffer.append(condition.getFieldName()).append(" ").append(condition.getConditionalOperator()).append(" ").append(condition.getValue());
 				}
-				
-				System.out.println(buffer);
+				MessageDialog dialog = new MessageDialog(getShell(),"Fieds are invalid", null,
+			            "Not all fields are valid", MessageDialog.ERROR, new String[] { "Ok" }, 0) ;	
+				dialog.open();
 			}
+			
 		});
 		okButton.setText("Ok");
 		
@@ -173,22 +183,66 @@ public class Filter extends Dialog {
 		conditionCombo.setItems(relationalOperators);
 		conditionCombo.select(0);
 		conditionCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
+		conditionCombo.addSelectionListener(getComboSelectionListener());
+		conditionCombo.addModifyListener(getComboModifyListener());
 		
 		Combo fieldCombo = new Combo(composite, SWT.NONE);
 		fieldCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
 		fieldCombo.setItems(fieldNames);
 		new AutoCompleteField(fieldCombo, new ComboContentAdapter(), fieldNames);
+		fieldCombo.addSelectionListener(getComboSelectionListener());
+		fieldCombo.addModifyListener(getComboModifyListener());
 		
 		Combo operatorCombo = new Combo(composite, SWT.NONE);
 		fieldCombo.addSelectionListener(getFieldComboListener(operatorCombo));
 		operatorCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
+		operatorCombo.addSelectionListener(getComboSelectionListener());
+		operatorCombo.addModifyListener(getComboModifyListener());
 		
-		text = new Text(composite, SWT.BORDER);
+		Text text = new Text(composite, SWT.BORDER);
 		text.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
-		
+		text.addModifyListener(getTextModifyListener());
 		composite.setData("rowIndex", 0);
 	}
 
+	private ModifyListener getTextModifyListener() {
+		return new ModifyListener() {
+			
+			@Override
+			public void modifyText(ModifyEvent e) {
+				Text text = (Text)e.widget;
+				validateText(text);
+			}
+		};
+	}
+	
+	private ModifyListener getComboModifyListener() {
+		return new ModifyListener() {
+			
+			@Override
+			public void modifyText(ModifyEvent e) {
+				Combo combo = (Combo)e.widget;
+				validateCombo(combo);
+			}
+		};
+	}
+
+	private SelectionListener getComboSelectionListener() {
+		return new SelectionListener() {
+			
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				Combo combo = (Combo)e.widget;
+				validateCombo(combo);
+			}
+			
+			@Override
+			public void widgetDefaultSelected(SelectionEvent e) {
+			}
+		};
+	}
+
+	
 	private SelectionListener getFieldComboListener(final Combo operatorCombo) {
 		return new SelectionListener() {
 			
@@ -252,5 +306,25 @@ public class Filter extends Dialog {
 		this.fieldsAndTypes = fieldsAndTypes;
 		fieldNames = (String[]) this.fieldsAndTypes.keySet().toArray(new String[this.fieldsAndTypes.size()]);
 		Arrays.sort(fieldNames);
+	}
+	
+	private boolean validateCombo(Combo combo){
+		if((Arrays.asList(combo.getItems())).contains(combo.getText())){
+			combo.setBackground(ColorConstants.white);
+			return true;
+		}else {
+			combo.setBackground(ColorConstants.yellow);
+			return false;
+		}
+	}
+	
+	private boolean validateText(Text text) {
+		if(StringUtils.isNotBlank(text.getText())){
+			text.setBackground(ColorConstants.white);
+			return true;
+		}else {
+			text.setBackground(ColorConstants.yellow);
+			return false;
+		}
 	}
 }
