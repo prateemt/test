@@ -1,14 +1,19 @@
 package com.bitwise.app.graph.propertywindow;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.fieldassist.AutoCompleteField;
 import org.eclipse.jface.fieldassist.ComboContentAdapter;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
@@ -16,9 +21,6 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
@@ -27,14 +29,12 @@ import org.eclipse.swt.widgets.Text;
 public class Filter extends Dialog {
 	private Text text;
 	private Composite allRowsComposite;
-	private List<com.bitwise.app.graph.propertywindow.Condition> conditionsList;
+	private List<Condition> conditionsList;
+	private Map<String,String[]> typeBasedConditionalOperators = new HashMap<>();
+	private String relationalOperators[];
+	private String fieldNames[];
+	private Map<String, String> fieldsAndTypes;
 	
-	private String[] fields = new String[]{"firstName", "lastName", "salary", "birthDate"};
-	
-	public static void main(String[] args) {
-		Filter test = new Filter(Display.getDefault().getActiveShell());
-		test.open();
-	}
 	/**
 	 * Create the dialog.
 	 * @param parentShell
@@ -43,6 +43,11 @@ public class Filter extends Dialog {
 		super(parentShell);
 		setShellStyle(SWT.CLOSE | SWT.RESIZE | SWT.TITLE);
 		conditionsList = new ArrayList<>();
+		
+		typeBasedConditionalOperators.put("java.lang.String", new String[]{"like", "in", "not in"});
+		typeBasedConditionalOperators.put("java.lang.Integer", new String[]{"<", "<=", ">", ">=", "!=", "="});
+		typeBasedConditionalOperators.put("java.util.Date", new String[]{"<", "<=", ">", ">=", "!=", "="});
+		typeBasedConditionalOperators.put("java.math.BigDecimal", new String[]{"<", "<=", ">", ">=", "!=", "="});
 	}
 
 	/**
@@ -144,12 +149,6 @@ public class Filter extends Dialog {
 				updateReferences();
 			}
 
-			private void updateReferences() {
-				Control[] children = allRowsComposite.getChildren();
-				for(int i = 0; i < children.length; i++){
-					((Composite)children[0]).setData("rowIndex", i);
-				}
-			}
 		});
 		addButton.setText("+");
 		
@@ -157,9 +156,13 @@ public class Filter extends Dialog {
 		removeButton.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				Button button = ((Button)e.getSource());
-				button.getParent().dispose();
-				allRowsComposite.layout(true);
+				if(allRowsComposite.getChildren().length > 1){
+					Button button = ((Button)e.getSource());
+					button.getParent().dispose();
+					allRowsComposite.layout(true);
+					disableFirstComposite();
+					updateReferences();
+				}
 			}
 		});
 		removeButton.setText("*");
@@ -167,17 +170,17 @@ public class Filter extends Dialog {
 		Button checkbox = new Button(composite, SWT.CHECK);
 		
 		Combo conditionCombo = new Combo(composite, SWT.NONE);
-		conditionCombo.setItems(new String[] {"and", "or"});
+		conditionCombo.setItems(relationalOperators);
 		conditionCombo.select(0);
 		conditionCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
 		
 		Combo fieldCombo = new Combo(composite, SWT.NONE);
 		fieldCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
-		fieldCombo.setItems(fields);
-		new AutoCompleteField(fieldCombo, new ComboContentAdapter(), fields);
+		fieldCombo.setItems(fieldNames);
+		new AutoCompleteField(fieldCombo, new ComboContentAdapter(), fieldNames);
 		
 		Combo operatorCombo = new Combo(composite, SWT.NONE);
-		operatorCombo.setItems(getOperatorsBasedOnDataType("java.lang.String"));
+		fieldCombo.addSelectionListener(getFieldComboListener(operatorCombo));
 		operatorCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
 		
 		text = new Text(composite, SWT.BORDER);
@@ -186,16 +189,34 @@ public class Filter extends Dialog {
 		composite.setData("rowIndex", 0);
 	}
 
-	private String[] getOperatorsBasedOnDataType(String dataType) {
-		switch(dataType){
-		case "java.lang.String":
-			return new String[] {"like"};
-		case "java.lang.BigDecimal":
-			return new String[] {">", ">=", "<", "<=", "!=", "=="};
-		}
-		return null;
+	private SelectionListener getFieldComboListener(final Combo operatorCombo) {
+		return new SelectionListener() {
+			
+			@Override
+			public void widgetSelected(SelectionEvent e){
+				String fieldName = ((Combo)e.widget).getText();
+				if(StringUtils.isNotBlank(fieldName)){
+					String fieldType = fieldsAndTypes.get(fieldName);
+					operatorCombo.setItems(typeBasedConditionalOperators.get(fieldType));
+					AutoCompleteField autoComplete= new AutoCompleteField(operatorCombo, new ComboContentAdapter(), typeBasedConditionalOperators.get(fieldType));
+					autoComplete.setProposals(typeBasedConditionalOperators.get(fieldType));
+				}
+			}
+			
+			@Override
+			public void widgetDefaultSelected(SelectionEvent e) {
+				
+			}
+		};
 	}
 
+	private void updateReferences() {
+		Control[] children = allRowsComposite.getChildren();
+		for(int i = 0; i < children.length; i++){
+			((Composite)children[0]).setData("rowIndex", i);
+		}
+	}
+	
 	private void disableFirstComposite(){
 		Control[] children = allRowsComposite.getChildren();
 		for (int index = 0; index < children.length; index++) {
@@ -223,5 +244,13 @@ public class Filter extends Dialog {
 	@Override
 	protected Point getInitialSize() {
 		return new Point(1216, 692);
+	}
+	public void setRelationalOperators(String[] relationalOperators) {
+		this.relationalOperators = relationalOperators;
+	}
+	public void setFieldsAndTypes(Map<String, String> fieldsAndTypes) {
+		this.fieldsAndTypes = fieldsAndTypes;
+		fieldNames = (String[]) this.fieldsAndTypes.keySet().toArray(new String[this.fieldsAndTypes.size()]);
+		Arrays.sort(fieldNames);
 	}
 }
