@@ -1,4 +1,4 @@
-package hydrograph.ui.dataviewer.filter;
+package com.bitwise.app.graph.propertywindow;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -251,7 +251,6 @@ public class FilterWithTables extends Dialog {
 				if (item.getData("ADDED_VALUE") == null) {
 					item.setData("ADDED_VALUE", "TRUE");
 					Text text = addTextBoxInTable(tableViewer, item, VALUE_TEXT_BOX, VALUE_TEXT_PANE, VALUE_EDITOR, cell.getColumnIndex(), getTextBoxListener(conditionsList));
-					System.out.println(tableViewer.getTable().indexOf(item) + "-->" + text.getText());
 					text.setText((conditionsList.get(tableViewer.getTable().indexOf(item))).getValue());
 					item.addDisposeListener(new DisposeListener() {
 						
@@ -286,8 +285,9 @@ public class FilterWithTables extends Dialog {
 				// prevent multiple updates on single item
 				if (item.getData("ADDED_CONDITIONAL") == null) {
 					item.setData("ADDED_CONDITIONAL", "TRUE");
-					addComboInTable(tableViewer, item, CONDITIONAL_OPERATORS, CONDITIONAL_COMBO_PANE, CONDITIONAL_EDITOR, cell.getColumnIndex(), new String[]{}, 
+					Combo combo = addComboInTable(tableViewer, item, CONDITIONAL_OPERATORS, CONDITIONAL_COMBO_PANE, CONDITIONAL_EDITOR, cell.getColumnIndex(), new String[]{}, 
 							getConditionalOperatorSelectionListener(conditionsList));
+					combo.setText((conditionsList.get(tableViewer.getTable().indexOf(item))).getConditionalOperator());
 					item.addDisposeListener(new DisposeListener() {
 						
 						@Override
@@ -306,7 +306,7 @@ public class FilterWithTables extends Dialog {
 				}
 				else{
 					Combo combo = (Combo) item.getData(CONDITIONAL_OPERATORS);
-					combo.setText((conditionsList.get(tableViewer.getTable().indexOf(item))).getValue());
+					combo.setText((conditionsList.get(tableViewer.getTable().indexOf(item))).getConditionalOperator());
 				}
 			}
 		};
@@ -322,8 +322,9 @@ public class FilterWithTables extends Dialog {
 				// prevent multiple updates on single item
 				if (item.getData("ADDED_FIELD") == null) {
 					item.setData("ADDED_FIELD", "TRUE");
-					addComboInTable(tableViewer, item, FIELD_NAMES, FIELD_COMBO_PANE, FIELD_EDITOR, cell.getColumnIndex(), fieldNames, 
+					Combo combo = addComboInTable(tableViewer, item, FIELD_NAMES, FIELD_COMBO_PANE, FIELD_EDITOR, cell.getColumnIndex(), fieldNames, 
 							getFieldNameSelectionListener(tableViewer, conditionsList));
+					combo.setText((conditionsList.get(tableViewer.getTable().indexOf(item))).getFieldName());
 					item.addDisposeListener(new DisposeListener() {
 						
 						@Override
@@ -342,7 +343,7 @@ public class FilterWithTables extends Dialog {
 				}
 				else{
 					Combo combo = (Combo) item.getData(FIELD_NAMES);
-					combo.setText((conditionsList.get(tableViewer.getTable().indexOf(item))).getValue());
+					combo.setText((conditionsList.get(tableViewer.getTable().indexOf(item))).getFieldName());
 				}
 			}
 		};
@@ -358,9 +359,9 @@ public class FilterWithTables extends Dialog {
 				// prevent multiple updates on single item
 				if (item.getData("ADDED_RELATIONAL") == null) {
 					item.setData("ADDED", "TRUE");
-					addComboInTable(tableViewer, item, RELATIONAL_OPERATORS, RELATIONAL_COMBO_PANE, RELATIONAL_EDITOR, cell.getColumnIndex(), relationalOperators, 
-							getRelationalOpSelectionListener(conditionsList));
-					Combo combo = (Combo) item.getData(RELATIONAL_OPERATORS);
+					Combo combo = addComboInTable(tableViewer, item, RELATIONAL_OPERATORS, RELATIONAL_COMBO_PANE, RELATIONAL_EDITOR, cell.getColumnIndex(), 
+							relationalOperators, getRelationalOpSelectionListener(conditionsList));
+					combo.setText((conditionsList.get(tableViewer.getTable().indexOf(item))).getRelationalOperator());
 					if(tableViewer.getTable().indexOf(item) == 0){
 						combo.setVisible(false);
 					}
@@ -385,7 +386,7 @@ public class FilterWithTables extends Dialog {
 				}
 				else{
 					Combo combo = (Combo) item.getData(RELATIONAL_OPERATORS);
-					combo.setText((conditionsList.get(tableViewer.getTable().indexOf(item))).getValue());
+					combo.setText((conditionsList.get(tableViewer.getTable().indexOf(item))).getRelationalOperator());
 				}
 			}
 		};
@@ -510,7 +511,7 @@ public class FilterWithTables extends Dialog {
 		return text;
 	}
 	
-	private void addComboInTable(TableViewer tableViewer, TableItem tableItem, String comboName, String comboPaneName, String editorName, int columnIndex,
+	private Combo addComboInTable(TableViewer tableViewer, TableItem tableItem, String comboName, String comboPaneName, String editorName, int columnIndex,
 			String[] relationalOperators, SelectionListener dropDownSelectionListener) {
 		final Composite buttonPane = new Composite(tableViewer.getTable(), SWT.NONE);
 		buttonPane.setLayout(new FillLayout());
@@ -529,6 +530,7 @@ public class FilterWithTables extends Dialog {
 		editor.setEditor(buttonPane, tableItem, columnIndex);
 		editor.layout();
 		combo.setData(editorName, editor);
+		return combo;
 	}
 
 	private void addButtonInTable(TableViewer tableViewer, TableItem tableItem, String columnName, 
