@@ -1,4 +1,4 @@
-package com.bitwise.app.graph.propertywindow;
+package hydrograph.ui.dataviewer.filter;
 
 import java.util.HashMap;
 import java.util.Map;
